@@ -11,6 +11,7 @@ from tempfile import (
 from typing import (
     Any,
     Generator,
+    Optional,
     Sequence,
 )
 import zipfile
@@ -35,6 +36,7 @@ class GethBenchmarkFixture:
         self.rpc_port = self._rpc_port()
         self.endpoint_uri = self._endpoint_uri()
         self.geth_binary = self._geth_binary()
+        self.ipc_endpoint: Optional[str] = None
 
     def build(self) -> Generator[Any, None, None]:
         with TemporaryDirectory() as base_dir:
@@ -49,6 +51,7 @@ class GethBenchmarkFixture:
             with zipfile.ZipFile(zipfile_path, "r") as zip_ref:
                 zip_ref.extractall(tmp_datadir)
             self.datadir = tmp_datadir
+            self.ipc_endpoint = os.path.join(self.datadir, "geth.ipc")
 
             genesis_file = os.path.join(self.datadir, "genesis.json")
 

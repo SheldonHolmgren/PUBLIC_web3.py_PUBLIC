@@ -15,8 +15,10 @@ from typing import (
 
 from web3 import (
     AsyncHTTPProvider,
+    AsyncIPCProvider,
     AsyncWeb3,
     HTTPProvider,
+    IPCProvider,
     Web3,
 )
 from web3.middleware import (
@@ -33,7 +35,9 @@ from web3.tools.benchmark.reporting import (
 )
 from web3.tools.benchmark.utils import (
     wait_for_aiohttp,
+    wait_for_async_socket,
     wait_for_http,
+    wait_for_socket,
 )
 from web3.types import (
     Wei,
@@ -64,11 +68,29 @@ def build_web3_http(endpoint_uri: str) -> Web3:
     return _w3
 
 
+def build_web3_ipc(endpoint_uri: str) -> Web3:
+    wait_for_socket(endpoint_uri)
+    _w3 = Web3(
+        IPCProvider(endpoint_uri),
+        middlewares=[gas_price_strategy_middleware],
+    )
+    return _w3
+
+
 async def build_async_w3_http(endpoint_uri: str) -> AsyncWeb3:
     await wait_for_aiohttp(endpoint_uri)
     _w3 = AsyncWeb3(
         AsyncHTTPProvider(endpoint_uri),
         middlewares=[GasPriceStrategyMiddleware, BufferedGasEstimateMiddleware],
+    )
+    return _w3
+
+
+async def build_async_w3_ipc(endpoint_uri: str) -> AsyncWeb3:
+    await wait_for_async_socket(endpoint_uri)
+    _w3 = AsyncWeb3(
+        AsyncIPCProvider(endpoint_uri),
+        middlewares=[async_gas_price_strategy_middleware],
     )
     return _w3
 
@@ -92,7 +114,7 @@ async def async_benchmark(func: Callable[..., Any], n: int) -> Union[float, str]
             await result
         execution_time = timeit.default_timer() - starttime
         return execution_time
-    except Exception:
+    except Exception as e:
         return "N/A"
 
 
@@ -101,6 +123,7 @@ def main(logger: logging.Logger, num_calls: int) -> None:
     for built_fixture in fixture.build():
         for _ in built_fixture:
             w3_http = build_web3_http(fixture.endpoint_uri)
+            w3_ipc = build_web3_ipc(fixture.ipc_endpoint)
             try:
                 loop = asyncio.get_running_loop()
             except RuntimeError:
@@ -115,13 +138,14 @@ def main(logger: logging.Logger, num_calls: int) -> None:
                 build_async_w3_http(fixture.endpoint_uri)
             )
             async_coinbase = loop.run_until_complete(async_w3_http.eth.coinbase)
-
             methods = [
                 {
                     "name": "eth_gasPrice",
                     "params": {},
                     "exec": lambda: w3_http.eth.gas_price,
                     "async_exec": lambda: async_w3_http.eth.gas_price,
+                    "ipc": lambda: w3_ipc.eth.gas_price,
+                    "async_ipc": lambda: async_w3_ipc.eth.gas_price,
                 },
                 {
                     "name": "eth_sendTransaction",
@@ -140,18 +164,36 @@ def main(logger: logging.Logger, num_calls: int) -> None:
                             "value": Wei(1),
                         }
                     ),
+                    "ipc": lambda: w3_ipc.eth.send_transaction(
+                        {
+                            "to": "0xd3CdA913deB6f67967B99D67aCDFa1712C293601",
+                            "from": unlocked_account(w3_http),
+                            "value": Wei(12345),
+                        }
+                    ),
+                    "async_ipc": lambda: async_w3_ipc.eth.send_transaction(
+                        {
+                            "to": "0xd3CdA913deB6f67967B99D67aCDFa1712C293601",
+                            "from": async_unlocked_acct,
+                            "value": Wei(12345),
+                        }
+                    ),
                 },
                 {
                     "name": "eth_blockNumber",
                     "params": {},
                     "exec": lambda: w3_http.eth.block_number,
                     "async_exec": lambda: async_w3_http.eth.block_number,
+                    "ipc": lambda: w3_ipc.eth.block_number,
+                    "async_ipc": lambda: async_w3_ipc.eth.block_number,
                 },
                 {
                     "name": "eth_getBlock",
                     "params": {},
                     "exec": lambda: w3_http.eth.get_block(1),
                     "async_exec": lambda: async_w3_http.eth.get_block(1),
+                    "ipc": lambda: w3_ipc.eth.get_block(1),
+                    "async_ipc": lambda: async_w3_ipc.eth.get_block(1),
                 },
             ]
 
@@ -164,6 +206,13 @@ def main(logger: logging.Logger, num_calls: int) -> None:
                 )
                 outcomes["AsyncHTTPProvider"] = loop.run_until_complete(
                     async_benchmark(method["async_exec"], num_calls)
+                )
+                outcomes["IPCProvider"] = sync_benchmark(
+                    method["ipc"],
+                    num_calls,
+                )
+                outcomes["AsyncIPCProvider"] = loop.run_until_complete(
+                    async_benchmark(method["async_ipc"], num_calls)
                 )
                 print_entry(logger, outcomes)
 
