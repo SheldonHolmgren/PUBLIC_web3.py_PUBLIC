@@ -146,7 +146,7 @@ class AsyncIPCProvider(AsyncJSONBaseProvider):
                     writer.write(request)
                     await writer.drain()
 
-            async def wait_for_response() -> RPCResponse:
+            async def decode_response() -> RPCResponse:
                 raw_response = b""
                 while True:
                     async with async_lock(
@@ -165,4 +165,4 @@ class AsyncIPCProvider(AsyncJSONBaseProvider):
                     else:
                         await asyncio.sleep(0)
 
-            return await asyncio.wait_for(wait_for_response(), 120)
+            return await asyncio.wait_for(decode_response(), self.timeout)
