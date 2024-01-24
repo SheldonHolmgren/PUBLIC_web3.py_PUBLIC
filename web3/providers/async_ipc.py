@@ -1,23 +1,19 @@
 import asyncio
-import json
 from concurrent.futures import (
     ThreadPoolExecutor,
 )
 import errno
+import json
 import logging
 from pathlib import (
     Path,
 )
 import sys
 import threading
-from types import (
-    TracebackType,
-)
 from typing import (
     Any,
     Optional,
     Tuple,
-    Type,
     Union,
 )
 
@@ -26,13 +22,22 @@ from web3.types import (
     RPCId,
     RPCResponse,
 )
-from . import PersistentConnectionProvider
 
+from . import (
+    PersistentConnectionProvider,
+)
+from .._utils.caching import (
+    async_handle_request_caching,
+    generate_cache_key,
+)
+from ..exceptions import (
+    ProviderConnectionError,
+    TimeExhausted,
+)
 from .ipc import (
     get_default_ipc_path,
+    has_valid_json_rpc_ending,
 )
-from .._utils.caching import async_handle_request_caching, generate_cache_key
-from ..exceptions import ProviderConnectionError, TimeExhausted
 
 
 async def async_get_ipc_socket(
@@ -85,8 +90,8 @@ class AsyncIPCProvider(PersistentConnectionProvider):
         else:
             raise TypeError("ipc_path must be of type string or pathlib.Path")
 
+        self._socket = PersistantSocket(self.ipc_path)
         self.timeout = timeout
-        self._socket = AsyncPersistentSocket(self.ipc_path)
         self._max_connection_retries = max_connection_retries
         self.raise_listener_task_exceptions = raise_listener_task_exceptions
         super().__init__(ipc_path, **kwargs)
@@ -102,7 +107,7 @@ class AsyncIPCProvider(PersistentConnectionProvider):
         while _connection_attempts != self._max_connection_retries:
             try:
                 _connection_attempts += 1
-                self._socket = await self._socket._open()
+                self._socket.sock = await self._socket._open()
                 self._message_listener_task = asyncio.create_task(
                     self._ws_message_listener()
                 )
@@ -151,7 +156,7 @@ class AsyncIPCProvider(PersistentConnectionProvider):
                 "Connection to websocket has not been initiated for the provider."
             )
 
-        writer = self._socket[1]
+        writer = self._socket.sock[1]
         try:
             writer.write(request_data)
             await writer.drain()
@@ -210,21 +215,25 @@ class AsyncIPCProvider(PersistentConnectionProvider):
             "IPC socket listener background task started. Storing all messages in "
             "appropriate request processor queues / caches to be processed."
         )
+        raw_message = b""
+        ipc_reader = self._socket.sock[0]
+
         while True:
             # the use of sleep(0) seems to be the most efficient way to yield control
             # back to the event loop to share the loop with other tasks.
             await asyncio.sleep(0)
 
             try:
-                ipc_reader = self._socket[0]
-                async for raw_message in ipc_reader:
-                    await asyncio.sleep(0)
+                raw_message += await ipc_reader.read(4096)
 
+                if has_valid_json_rpc_ending(raw_message):
                     response = json.loads(raw_message)
                     subscription = response.get("method") == "eth_subscription"
                     await self._request_processor.cache_raw_response(
                         response, subscription=subscription
                     )
+                    # reset raw_message to an empty byte string
+                    raw_message = b""
             except Exception as e:
                 if self.raise_listener_task_exceptions:
                     # If ``True``, raise; else, error log & keep task alive
