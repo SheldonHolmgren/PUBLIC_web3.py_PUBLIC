@@ -54,7 +54,7 @@ async def async_get_ipc_socket(
         return await asyncio.open_unix_connection(ipc_path)
 
 
-class PersistantSocket:
+class PersistentSocket:
     sock: Optional[Tuple[asyncio.StreamReader, asyncio.StreamWriter]] = None
 
     def __init__(self, ipc_path: str) -> None:
@@ -90,7 +90,7 @@ class AsyncIPCProvider(PersistentConnectionProvider):
         else:
             raise TypeError("ipc_path must be of type string or pathlib.Path")
 
-        self._socket = PersistantSocket(self.ipc_path)
+        self._socket = PersistentSocket(self.ipc_path)
         self.timeout = timeout
         self._max_connection_retries = max_connection_retries
         self.raise_listener_task_exceptions = raise_listener_task_exceptions
