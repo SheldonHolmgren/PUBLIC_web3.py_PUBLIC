@@ -1,4 +1,7 @@
 import asyncio
+from json import (
+    JSONDecodeError,
+)
 from concurrent.futures import (
     ThreadPoolExecutor,
 )
@@ -74,6 +77,13 @@ class PersistentSocket:
 class AsyncIPCProvider(PersistentConnectionProvider):
     logger = logging.getLogger("web3.providers.AsyncIPCProvider")
     _socket = None
+
+    LOG = True  # toggle debug logging
+    if LOG:
+        import logging
+        logger = logging.getLogger("web3.providers.AsyncIPCProvider")
+        logger.setLevel(logging.DEBUG)
+        logger.addHandler(logging.StreamHandler())
 
     def __init__(
         self,
@@ -153,7 +163,7 @@ class AsyncIPCProvider(PersistentConnectionProvider):
 
         if self._socket is None:
             raise ProviderConnectionError(
-                "Connection to websocket has not been initiated for the provider."
+                "Connection to ipc socket has not been initiated for the provider."
             )
 
         writer = self._socket.sock[1]
@@ -224,20 +234,25 @@ class AsyncIPCProvider(PersistentConnectionProvider):
             await asyncio.sleep(0)
 
             try:
-                raw_message += await ipc_reader.read(4096)
+                # raw_message += await ipc_reader.read(4096)
+                raw_message += await ipc_reader.readline()
 
                 if has_valid_json_rpc_ending(raw_message):
-                    response = json.loads(raw_message)
+                    try:
+                        response = self.decode_rpc_response(raw_message)
+                    except JSONDecodeError:
+                        asyncio.sleep(0)
+                        continue
                     subscription = response.get("method") == "eth_subscription"
                     await self._request_processor.cache_raw_response(
                         response, subscription=subscription
                     )
                     # reset raw_message to an empty byte string
-                    raw_message = b""
+                    # raw_message = b""
             except Exception as e:
-                if self.raise_listener_task_exceptions:
-                    # If ``True``, raise; else, error log & keep task alive
-                    raise e
+            #     if self.raise_listener_task_exceptions:
+            #         # If ``True``, raise; else, error log & keep task alive
+                raise e
 
                 self.logger.error(
                     "Exception caught in listener, error logging and keeping listener "
