@@ -76,7 +76,7 @@ def serve_empty_result(simple_ipc_server):
         connection, client_address = simple_ipc_server.accept()
         try:
             connection.recv(1024)
-            connection.sendall(b'{"id": 1, "result": {}')
+            connection.sendall(b'{"id": 0, "result": {}')
             time.sleep(0.1)
             connection.sendall(b"}")
         finally:
@@ -99,11 +99,13 @@ async def test_async_waits_for_full_result(jsonrpc_ipc_pipe_path, serve_empty_re
         AsyncIPCProvider(pathlib.Path(jsonrpc_ipc_pipe_path), timeout=3)
     ) as w3:
         result = await w3.provider.make_request("method", [])
-        assert result == {"id": 1, "result": {}}
+        assert result == {"id": 0, "result": {}}
         sock = w3.provider._socket.sock
         reader, writer = sock
         writer.close()
         await writer.wait_closed()
+        # Cleanup
+        await w3.provider.disconnect()
 
 
 # @pytest.mark.asyncio

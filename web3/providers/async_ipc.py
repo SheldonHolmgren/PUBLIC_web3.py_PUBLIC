@@ -234,21 +234,21 @@ class AsyncIPCProvider(PersistentConnectionProvider):
             await asyncio.sleep(0)
 
             try:
-                # raw_message += await ipc_reader.read(4096)
-                raw_message += await ipc_reader.readline()
+                raw_message += await ipc_reader.read(4096)
 
                 if has_valid_json_rpc_ending(raw_message):
                     try:
                         response = self.decode_rpc_response(raw_message)
                     except JSONDecodeError:
-                        asyncio.sleep(0)
+                        await asyncio.sleep(0)
                         continue
                     subscription = response.get("method") == "eth_subscription"
                     await self._request_processor.cache_raw_response(
                         response, subscription=subscription
                     )
                     # reset raw_message to an empty byte string
-                    # raw_message = b""
+                    raw_message = b""
+                    break
             except Exception as e:
             #     if self.raise_listener_task_exceptions:
             #         # If ``True``, raise; else, error log & keep task alive
