@@ -139,7 +139,7 @@ class AsyncIPCProvider(PersistentConnectionProvider):
     async def disconnect(self) -> None:
         if self._socket is not None:
             try:
-                reader, writer = self._socket
+                reader, writer = self._socket.sock
                 writer.close()
                 await writer.wait_closed()
             except Exception:

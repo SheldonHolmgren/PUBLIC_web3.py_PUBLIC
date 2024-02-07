@@ -46,11 +46,11 @@ async def test_provider_is_connected(jsonrpc_ipc_pipe_path, serve_empty_result):
     async with AsyncWeb3.persistent_websocket(
         AsyncIPCProvider(jsonrpc_ipc_pipe_path)
     ) as w3:
-        # await w3.provider.disconnect()
-        # assert await w3.is_connected() is False
-        assert await w3.is_connected(show_traceback=True)
-        # with pytest.raises(ProviderConnectionError):
-        #     await w3.is_connected(show_traceback=True)
+        # clears cache
+        await w3.provider.disconnect()
+        assert await w3.is_connected() is False
+        with pytest.raises(ProviderConnectionError):
+            await w3.is_connected(show_traceback=True)
 
 
 def test_ipc_tilda_in_path():

@@ -563,8 +563,7 @@ class _PersistentConnectionWeb3(AsyncWeb3):
         exc_val: BaseException,
         exc_tb: TracebackType,
     ) -> None:
-        if await self.provider.is_connected():
-            await self.provider.disconnect()
+        await self.provider.disconnect()
 
     # async for w3 in w3.persistent_websocket(provider)
     async def __aiter__(self) -> AsyncIterator[Self]:
