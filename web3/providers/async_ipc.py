@@ -248,7 +248,6 @@ class AsyncIPCProvider(PersistentConnectionProvider):
                     )
                     # reset raw_message to an empty byte string
                     raw_message = b""
-                    break
             except Exception as e:
             #     if self.raise_listener_task_exceptions:
             #         # If ``True``, raise; else, error log & keep task alive
