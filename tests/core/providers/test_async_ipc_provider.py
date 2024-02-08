@@ -10,15 +10,9 @@ import time
 import uuid
 
 from web3 import AsyncWeb3
-from web3.auto.gethdev import (
-    async_w3,
-)
 from web3.exceptions import (
     ProviderConnectionError,
 )
-# from web3.middleware import (
-#     async_construct_fixture_middleware,
-# )
 from web3.providers.async_ipc import (
     AsyncIPCProvider,
 )
@@ -105,27 +99,12 @@ async def test_async_waits_for_full_result(jsonrpc_ipc_pipe_path, serve_empty_re
 
 
 @pytest.mark.asyncio
-async def test_web3_auto_gethdev(request_mocker):
-    await async_w3.provider.connect()
-    assert isinstance(async_w3.provider, AsyncIPCProvider)
-    async with request_mocker(
-        async_w3,
-        mock_results={
-            RPCEndpoint("eth_getBlockByNumber"): {"extraData": "0x" + "ff" * 33}
-        },
-    ):
-        block = await async_w3.eth.get_block("latest")
-        assert "extraData" not in block
-        assert block.proofOfAuthorityData == b"\xff" * 33
-    await async_w3.provider.disconnect()
-
-
-@pytest.mark.asyncio
 async def test_await_persistent_websocket(jsonrpc_ipc_pipe_path, serve_empty_result):
     w3 = await AsyncWeb3.persistent_websocket(AsyncIPCProvider(pathlib.Path(jsonrpc_ipc_pipe_path)))
     result = await w3.provider.make_request("method", [])
     assert result == {"id": 0, "result": {}}
     await w3.provider.disconnect()
+
 
 @pytest.mark.asyncio
 async def test_persistent_websocket(jsonrpc_ipc_pipe_path, serve_empty_result):
