@@ -117,12 +117,14 @@ class AsyncIPCProvider(PersistentConnectionProvider):
         while _connection_attempts != self._max_connection_retries:
             try:
                 _connection_attempts += 1
-                self._socket.sock = await self._socket._open()
+
+                # self._socket = await self._socket._open()
+                self.reader, self.writer = await self._socket._open()
                 self._message_listener_task = asyncio.create_task(
                     self._ws_message_listener()
                 )
                 break
-            except Exception as e:
+            except OSError as e:
                 if _connection_attempts == self._max_connection_retries:
                     raise ProviderConnectionError(
                         f"Could not connect to endpoint: {self.endpoint_uri}. "
@@ -139,9 +141,8 @@ class AsyncIPCProvider(PersistentConnectionProvider):
     async def disconnect(self) -> None:
         if self._socket is not None:
             try:
-                reader, writer = self._socket.sock
-                writer.close()
-                await writer.wait_closed()
+                self.writer.close()
+                await self.writer.wait_closed()
             except Exception:
                 pass
 
@@ -166,18 +167,17 @@ class AsyncIPCProvider(PersistentConnectionProvider):
                 "Connection to ipc socket has not been initiated for the provider."
             )
 
-        writer = self._socket.sock[1]
         try:
-            writer.write(request_data)
-            await writer.drain()
+            self.writer.write(request_data)
+            await self.writer.drain()
         except OSError as e:
             # Broken pipe
             if e.errno == errno.EPIPE:
                 # one extra attempt, then give up
                 new_sock = await self._socket.reset()
-                writer = new_sock[1]
-                writer.write(request_data)
-                await writer.drain()
+                self.writer = new_sock[1]
+                self.writer.write(request_data)
+                await self.writer.drain()
 
         current_request_id = json.loads(request_data)["id"]
         response = await self._get_response_for_request_id(current_request_id)
@@ -226,7 +226,7 @@ class AsyncIPCProvider(PersistentConnectionProvider):
             "appropriate request processor queues / caches to be processed."
         )
         raw_message = b""
-        ipc_reader = self._socket.sock[0]
+        # ipc_reader = self._socket[0]
 
         while True:
             # the use of sleep(0) seems to be the most efficient way to yield control
@@ -234,7 +234,7 @@ class AsyncIPCProvider(PersistentConnectionProvider):
             await asyncio.sleep(0)
 
             try:
-                raw_message += await ipc_reader.read(4096)
+                raw_message += await self.reader.read(4096)
 
                 if has_valid_json_rpc_ending(raw_message):
                     try:

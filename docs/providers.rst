@@ -88,7 +88,8 @@ Auto-initialization Provider Shortcuts
 Geth dev Proof of Authority
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To connect to a ``geth --dev`` Proof of Authority instance with defaults:
+To connect to a ``geth --dev`` Proof of Authority instance with
+the POA middleware loaded by default:
 
 .. code-block:: python
 
@@ -97,6 +98,18 @@ To connect to a ``geth --dev`` Proof of Authority instance with defaults:
     # confirm that the connection succeeded
     >>> w3.is_connected()
     True
+
+Or, connect to an async web3 instance:
+
+.. code-block:: python
+
+    >>> from web3.auto.gethdev import async_w3
+    >>> await async_w3.provider.connect()
+
+    # confirm that the connection succeeded
+    >>> await async_w3.is_connected()
+    True
+
 
 Built In Providers
 ------------------
