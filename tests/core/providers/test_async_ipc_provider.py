@@ -90,7 +90,7 @@ def serve_empty_result(simple_ipc_server):
 @pytest.mark.asyncio
 async def test_async_waits_for_full_result(jsonrpc_ipc_pipe_path, serve_empty_result):
     async with AsyncWeb3.persistent_websocket(
-        AsyncIPCProvider(pathlib.Path(jsonrpc_ipc_pipe_path), timeout=3)
+        AsyncIPCProvider(pathlib.Path(jsonrpc_ipc_pipe_path))
     ) as w3:
         result = await w3.provider.make_request("method", [])
         assert result == {"id": 0, "result": {}}

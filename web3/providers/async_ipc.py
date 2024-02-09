@@ -88,7 +88,7 @@ class AsyncIPCProvider(PersistentConnectionProvider):
     def __init__(
         self,
         ipc_path: Optional[Union[str, Path]] = None,
-        timeout: int = 10,
+        request_timeout: int = 10,
         max_connection_retries: int = 5,
         raise_listener_task_exceptions: bool = False,
         **kwargs: Any,
@@ -101,10 +101,10 @@ class AsyncIPCProvider(PersistentConnectionProvider):
             raise TypeError("ipc_path must be of type string or pathlib.Path")
 
         self._socket = PersistentSocket(self.ipc_path)
-        self.timeout = timeout
+        self.request_timeout = request_timeout
         self._max_connection_retries = max_connection_retries
         self.raise_listener_task_exceptions = raise_listener_task_exceptions
-        super().__init__(ipc_path, **kwargs)
+        super().__init__(request_timeout, **kwargs)
 
     def __str__(self) -> str:
         return f"<{self.__class__.__name__} {self.ipc_path}>"
