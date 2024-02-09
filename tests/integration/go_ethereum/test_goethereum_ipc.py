@@ -64,7 +64,7 @@ def w3(geth_process, geth_ipc_path):
 @pytest_asyncio.fixture(scope="module")
 async def async_w3(geth_process, geth_ipc_path):
     await wait_for_async_socket(geth_ipc_path)
-    _aw3 = AsyncWeb3(AsyncIPCProvider(geth_ipc_path, timeout=30))
+    _aw3 = AsyncWeb3(AsyncIPCProvider(geth_ipc_path, request_timeout=30))
     return _aw3
 
 
