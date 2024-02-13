@@ -240,21 +240,23 @@ class AsyncIPCProvider(PersistentConnectionProvider):
 
             try:
                 raw_message += to_text(await self.reader.read(4096))
+                raw_message = raw_message.lstrip()
 
-                try:
-                    (response, next_msg_pos) = decoder.raw_decode(raw_message, 0)
-                except JSONDecodeError as e:
-                    self.logger.debug(f"Failed to decode {raw_message}. Waiting for more data", exc_info=True)
-                    await asyncio.sleep(0)
-                    continue
-                subscription = response.get("method") == "eth_subscription"
-                await self._request_processor.cache_raw_response(
-                    response, subscription=subscription
-                )
-                # reset raw_message to an empty byte string
-                self.logger.debug(f"Received message: {response}. Discarding {raw_message}")
-                raw_message = raw_message[next_msg_pos:].lstrip()
-                next_msg_pos = 0
+                while True:
+                    try:
+                        (response, next_msg_pos) = decoder.raw_decode(raw_message, 0)
+                    except JSONDecodeError as e:
+                        self.logger.debug(f"Failed to decode {raw_message}. Waiting for more data", exc_info=True)
+                        await asyncio.sleep(0)
+                        break
+                    subscription = response.get("method") == "eth_subscription"
+                    await self._request_processor.cache_raw_response(
+                        response, subscription=subscription
+                    )
+                    # reset raw_message to an empty byte string
+                    self.logger.debug(f"Received message: {response}. Discarding {raw_message}")
+                    raw_message = raw_message[next_msg_pos:].lstrip()
+                    next_msg_pos = 0
             except Exception as e:
             #     if self.raise_listener_task_exceptions:
             #         # If ``True``, raise; else, error log & keep task alive
